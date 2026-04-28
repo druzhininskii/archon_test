@@ -439,6 +439,103 @@
     .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
 
     .theme-toggle svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* ── About button ── */
+    .about-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 6px 10px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .about-btn:hover { color: var(--text); border-color: var(--muted); background: var(--bg); }
+    .about-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      max-width: 520px;
+      width: calc(100% - 48px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      transform: translateY(12px);
+      transition: transform .2s;
+    }
+    .modal-backdrop.open .modal { transform: translateY(0); }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .modal-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--accent-light);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .modal-icon svg { color: var(--accent); }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .modal-subtitle { font-size: 13px; color: var(--muted); }
+
+    .modal-body { font-size: 14px; line-height: 1.7; color: var(--text); }
+    .modal-body p { margin-bottom: 12px; }
+    .modal-body p:last-child { margin-bottom: 0; }
+
+    .modal-features {
+      list-style: none;
+      margin: 14px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .modal-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .feat-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      margin-top: 7px;
+    }
+
+    .modal-footer {
+      margin-top: 24px;
+      display: flex;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
@@ -446,6 +543,13 @@
 <header>
   <div class="logo">doc<span>→</span>md</div>
   <span class="badge">DOCX to Markdown</span>
+  <button class="about-btn" onclick="openAbout()" title="About this tool">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <path stroke-linecap="round" d="M12 8h.01M12 11v5"/>
+    </svg>
+    About
+  </button>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
     <svg id="themeIcon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round"
@@ -547,6 +651,38 @@
 </main>
 
 <div class="toast" id="toast"></div>
+
+<!-- About modal -->
+<div class="modal-backdrop" id="aboutBackdrop" onclick="handleBackdropClick(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="modal-title" id="aboutTitle">doc→md</div>
+        <div class="modal-subtitle">DOCX to Markdown Converter</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p>This tool converts Microsoft Word documents (<strong>.docx</strong>) into clean, portable <strong>Markdown</strong> text — directly in your browser.</p>
+      <ul class="modal-features">
+        <li><span class="feat-dot"></span><span><strong>Drag &amp; drop or browse</strong> — select any .docx file from your computer.</span></li>
+        <li><span class="feat-dot"></span><span><strong>One-click conversion</strong> — the file is sent to the server, parsed, and returned as Markdown instantly.</span></li>
+        <li><span class="feat-dot"></span><span><strong>Source &amp; Preview tabs</strong> — inspect the raw Markdown or see a rendered HTML preview side by side.</span></li>
+        <li><span class="feat-dot"></span><span><strong>Copy or Download</strong> — grab the Markdown to your clipboard or save it as a <code>.md</code> file.</span></li>
+        <li><span class="feat-dot"></span><span><strong>AI Summarization</strong> — generate a short, medium, or detailed summary of the document using a language model of your choice.</span></li>
+      </ul>
+      <p>All conversion happens server-side via <strong>FastAPI</strong> + <strong>mammoth</strong>. No files are stored — your document is processed in memory and discarded immediately.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeAbout()">Got it</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ── simple marked-like renderer ──
@@ -721,6 +857,20 @@
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
     return (bytes / 1048576).toFixed(1) + ' MB'
   }
+
+  // ── About modal ──
+  function openAbout() {
+    document.getElementById('aboutBackdrop').classList.add('open')
+  }
+  function closeAbout() {
+    document.getElementById('aboutBackdrop').classList.remove('open')
+  }
+  function handleBackdropClick(e) {
+    if (e.target === document.getElementById('aboutBackdrop')) closeAbout()
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeAbout()
+  })
 
   // ── Theme toggle ──
   const SUN_ICON = `<path stroke-linecap="round" stroke-linejoin="round"
