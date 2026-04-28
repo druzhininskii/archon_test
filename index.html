@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DOCX → Markdown</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e5e5;
+      --text: #1a1a1a;
+      --muted: #888;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --success: #16a34a;
+      --radius: 10px;
+      --shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .logo {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -.3px;
+    }
+
+    header .logo span { color: var(--accent); }
+
+    .badge {
+      font-size: 11px;
+      color: var(--muted);
+      background: #f0f0f0;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 500;
+    }
+
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 14px;
+      color: var(--muted);
+    }
+
+    .upload-zone h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .upload-zone p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .upload-zone p strong { color: var(--accent); }
+
+    /* ── File info bar ── */
+    .file-info {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .file-info.visible { display: flex; }
+
+    .file-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-icon svg { color: var(--accent); }
+
+    .file-meta { flex: 1; min-width: 0; }
+    .file-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: opacity .15s, background .15s;
+      white-space: nowrap;
+    }
+
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:not(:disabled):hover { background: #1d4ed8; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+    .btn-outline-accent {
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid #bfdbfe;
+    }
+    .btn-outline-accent:hover { background: #dbeafe; }
+
+    /* ── Output panel ── */
+    .output-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .output-panel.visible { display: block; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #fdfdfd;
+    }
+
+    .panel-title { font-size: 13px; font-weight: 600; flex: 1; }
+
+    .stat-badge {
+      font-size: 11px;
+      color: var(--muted);
+      background: #f4f4f4;
+      padding: 3px 8px;
+      border-radius: 99px;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 2px;
+      padding: 10px 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .1s;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 500;
+    }
+
+    .tab-content { display: none; padding: 18px; }
+    .tab-content.active { display: block; }
+
+    #md-source {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      max-height: 480px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    #md-preview {
+      max-height: 480px;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    #md-preview h1 { font-size: 22px; margin-bottom: 12px; }
+    #md-preview h2 { font-size: 18px; margin: 20px 0 8px; }
+    #md-preview h3 { font-size: 15px; margin: 16px 0 6px; }
+    #md-preview p { margin-bottom: 10px; }
+    #md-preview ul, #md-preview ol { padding-left: 22px; margin-bottom: 10px; }
+    #md-preview li { margin-bottom: 4px; }
+    #md-preview code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    #md-preview pre { background: #f4f4f4; padding: 14px; border-radius: 8px; overflow-x: auto; margin-bottom: 12px; }
+    #md-preview blockquote { border-left: 3px solid var(--border); padding-left: 14px; color: var(--muted); }
+    #md-preview strong { font-weight: 600; }
+    #md-preview em { font-style: italic; }
+
+    /* ── Summarize section ── */
+    .summarize-bar {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .summarize-bar.visible { display: block; }
+
+    .summarize-bar h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .summarize-bar p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .summarize-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .model-select {
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+    }
+
+    .model-select:focus { border-color: var(--accent); }
+
+    .length-toggle {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .length-toggle button {
+      font-size: 12px;
+      padding: 7px 12px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+      transition: background .1s, color .1s;
+    }
+
+    .length-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Summary result ── */
+    .summary-result {
+      display: none;
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--accent-light);
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+    }
+
+    .summary-result.visible { display: block; }
+
+    .summary-result .summary-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+
+    .summary-result p {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+
+    .spinner.visible { display: inline-block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Error ── */
+    .error-msg {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      font-size: 13px;
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">doc<span>→</span>md</div>
+  <span class="badge">DOCX to Markdown</span>
+</header>
+
+<main>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".docx" />
+    <svg class="upload-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+    </svg>
+    <h2>Drop your DOCX file here</h2>
+    <p>or <strong>click to browse</strong> &nbsp;·&nbsp; Only .docx files</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- File info -->
+  <div class="file-info" id="fileInfo">
+    <div class="file-icon">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+      </svg>
+    </div>
+    <div class="file-meta">
+      <div class="file-name" id="fileName"></div>
+      <div class="file-size" id="fileSize"></div>
+    </div>
+    <button class="btn btn-primary" id="convertBtn" onclick="convertFile()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+      </svg>
+      <span class="spinner" id="convertSpinner"></span>
+      <span id="convertLabel">Convert</span>
+    </button>
+    <button class="btn btn-ghost" onclick="resetAll()">Clear</button>
+  </div>
+
+  <!-- Output -->
+  <div class="output-panel" id="outputPanel">
+    <div class="panel-header">
+      <span class="panel-title">Converted Markdown</span>
+      <span class="stat-badge" id="wordCount"></span>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="copyMarkdown()">Copy</button>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="downloadMarkdown()">Download</button>
+    </div>
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('source', this)">Source</button>
+      <button class="tab" onclick="switchTab('preview', this)">Preview</button>
+    </div>
+    <div class="tab-content active" id="tab-source">
+      <pre id="md-source"></pre>
+    </div>
+    <div class="tab-content" id="tab-preview">
+      <div id="md-preview"></div>
+    </div>
+  </div>
+
+  <!-- Summarize -->
+  <div class="summarize-bar" id="summarizeBar">
+    <h3>Summarize with AI</h3>
+    <p>Generate a concise summary of the converted document using a language model.</p>
+    <div class="summarize-controls">
+      <select class="model-select" id="modelSelect">
+        <option value="claude-opus-4-7">Claude Opus 4.7</option>
+        <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+      </select>
+      <div class="length-toggle">
+        <button class="active" onclick="setLength('short', this)">Short</button>
+        <button onclick="setLength('medium', this)">Medium</button>
+        <button onclick="setLength('long', this)">Detailed</button>
+      </div>
+      <button class="btn btn-outline-accent" id="summarizeBtn" onclick="summarize()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"/>
+        </svg>
+        <span class="spinner" id="summarizeSpinner"></span>
+        <span id="summarizeLabel">Summarize</span>
+      </button>
+    </div>
+
+    <div class="summary-result" id="summaryResult">
+      <div class="summary-label">Summary</div>
+      <p id="summaryText"></p>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── simple marked-like renderer ──
+  function renderMarkdown(md) {
+    let h = md
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>')
+      .replace(/\n\n/g, '</p><p>')
+    return '<p>' + h + '</p>'
+  }
+
+  let currentMarkdown = ''
+  let currentFilename = ''
+  let summaryLength = 'short'
+  let selectedFile = null
+
+  const DEMO_SUMMARIES = {
+    short: 'This document provides a concise overview of the main topics, presenting key findings and conclusions in a structured format suitable for quick reference.',
+    medium: 'The document covers several interconnected topics, beginning with an introduction to the subject matter and progressing through detailed analysis sections. Key arguments are supported with evidence, and the conclusion synthesizes the main points into actionable insights for the reader.',
+    long: 'The document is a comprehensive treatment of the subject, structured across multiple sections. The introduction establishes the context and motivation, while subsequent sections examine specific aspects in depth. The analysis draws on various supporting materials and presents nuanced perspectives. The document concludes with a summary of findings and recommendations, offering a clear path forward based on the evidence presented throughout. Key themes include structured argumentation, evidence-based reasoning, and practical applicability of the discussed concepts.'
+  }
+
+  // drag & drop
+  const zone = document.getElementById('uploadZone')
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over') })
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'))
+  zone.addEventListener('drop', e => {
+    e.preventDefault()
+    zone.classList.remove('drag-over')
+    const f = e.dataTransfer.files[0]
+    if (f) handleFile(f)
+  })
+
+  document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0])
+  })
+
+  function handleFile(file) {
+    if (!file.name.endsWith('.docx')) {
+      showError('Only .docx files are supported.')
+      return
+    }
+    hideError()
+    selectedFile = file
+    currentFilename = file.name
+    document.getElementById('fileName').textContent = file.name
+    document.getElementById('fileSize').textContent = formatSize(file.size)
+    document.getElementById('fileInfo').classList.add('visible')
+    document.getElementById('outputPanel').classList.remove('visible')
+    document.getElementById('summarizeBar').classList.remove('visible')
+    document.getElementById('summaryResult').classList.remove('visible')
+    currentMarkdown = ''
+  }
+
+  async function convertFile() {
+    if (!selectedFile) return
+    setConverting(true)
+    hideError()
+    const fd = new FormData()
+    fd.append('file', selectedFile)
+    try {
+      const res = await fetch('/api/convert', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Conversion failed')
+      currentMarkdown = data.markdown
+      document.getElementById('md-source').textContent = data.markdown
+      document.getElementById('md-preview').innerHTML = renderMarkdown(data.markdown)
+      document.getElementById('wordCount').textContent = data.word_count + ' words'
+      document.getElementById('outputPanel').classList.add('visible')
+      document.getElementById('summarizeBar').classList.add('visible')
+    } catch (e) {
+      showError(e.message)
+    } finally {
+      setConverting(false)
+    }
+  }
+
+  function setConverting(on) {
+    const btn = document.getElementById('convertBtn')
+    const spinner = document.getElementById('convertSpinner')
+    const label = document.getElementById('convertLabel')
+    btn.disabled = on
+    spinner.classList.toggle('visible', on)
+    label.textContent = on ? 'Converting…' : 'Convert'
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'))
+    btn.classList.add('active')
+    document.getElementById('tab-' + name).classList.add('active')
+  }
+
+  function copyMarkdown() {
+    navigator.clipboard.writeText(currentMarkdown).then(() => showToast('Copied to clipboard'))
+  }
+
+  function downloadMarkdown() {
+    const blob = new Blob([currentMarkdown], { type: 'text/markdown' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = currentFilename.replace('.docx', '.md')
+    a.click()
+  }
+
+  function setLength(len, btn) {
+    summaryLength = len
+    document.querySelectorAll('.length-toggle button').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    document.getElementById('summaryResult').classList.remove('visible')
+  }
+
+  function summarize() {
+    const btn = document.getElementById('summarizeBtn')
+    const spinner = document.getElementById('summarizeSpinner')
+    const label = document.getElementById('summarizeLabel')
+    btn.disabled = true
+    spinner.classList.add('visible')
+    label.textContent = 'Thinking…'
+
+    setTimeout(() => {
+      document.getElementById('summaryText').textContent = DEMO_SUMMARIES[summaryLength]
+      document.getElementById('summaryResult').classList.add('visible')
+      btn.disabled = false
+      spinner.classList.remove('visible')
+      label.textContent = 'Summarize'
+    }, 1400)
+  }
+
+  function resetAll() {
+    selectedFile = null
+    currentMarkdown = ''
+    document.getElementById('fileInput').value = ''
+    document.getElementById('fileInfo').classList.remove('visible')
+    document.getElementById('outputPanel').classList.remove('visible')
+    document.getElementById('summarizeBar').classList.remove('visible')
+    document.getElementById('summaryResult').classList.remove('visible')
+    hideError()
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg')
+    el.textContent = msg
+    el.classList.add('visible')
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').classList.remove('visible')
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast')
+    t.textContent = msg
+    t.classList.add('show')
+    setTimeout(() => t.classList.remove('show'), 2000)
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1048576).toFixed(1) + ' MB'
+  }
+</script>
+</body>
+</html>
